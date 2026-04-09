@@ -2,11 +2,24 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { stripe } from "@/lib/stripe";
+import { getAllowedPriceIds } from "@/lib/subscription-plans";
 
-export async function POST() {
+export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const priceId =
+    body && typeof body.priceId === "string" ? body.priceId : null;
+
+  if (!priceId) {
+    return NextResponse.json({ error: "priceId manquant" }, { status: 400 });
+  }
+
+  if (!getAllowedPriceIds().has(priceId)) {
+    return NextResponse.json({ error: "priceId invalide" }, { status: 400 });
   }
 
   const user = await prisma.user.findUnique({
@@ -42,7 +55,7 @@ export async function POST() {
     payment_method_types: ["card"],
     line_items: [
       {
-        price: process.env.STRIPE_PRICE_ID_PREMIUM_MONTHLY!,
+        price: priceId,
         quantity: 1,
       },
     ],

@@ -1,6 +1,7 @@
 import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getSubscriptionPlans } from "@/lib/subscription-plans";
 import { SubscriptionButton } from "./subscription-button";
 
 export default async function DashboardPage({
@@ -24,6 +25,17 @@ export default async function DashboardPage({
 
   const params = await searchParams;
   const isSubscribed = user.stripeStatus === "active";
+  const subscriptionPlans = getSubscriptionPlans();
+  const periodLabel =
+    user.period === "year"
+      ? "annuel"
+      : user.period === "month"
+        ? "mensuel"
+        : null;
+  const subscriptionSummary =
+    isSubscribed && user.plan
+      ? `${user.plan}${periodLabel ? ` - ${periodLabel}` : ""}`
+      : "Aucun abonnement";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
@@ -62,7 +74,7 @@ export default async function DashboardPage({
                 Abonnement
               </p>
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                {isSubscribed ? "Actif — 9,90 € / mois" : "Aucun abonnement"}
+                {subscriptionSummary}
               </p>
             </div>
             <span
@@ -78,7 +90,10 @@ export default async function DashboardPage({
         </div>
 
         <div className="space-y-3">
-          <SubscriptionButton isSubscribed={isSubscribed} />
+          <SubscriptionButton
+            isSubscribed={isSubscribed}
+            planOptions={subscriptionPlans}
+          />
 
           <form
             action={async () => {

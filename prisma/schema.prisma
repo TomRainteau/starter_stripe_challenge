@@ -24,4 +24,6 @@ model User {
   stripeSubscriptionId String?
   stripePriceId        String?
   stripeStatus         String?
+  plan                 String?
+  period               String?
 }

@@ -148,7 +148,7 @@ Actuellement, l'application propose un seul abonnement. L'objectif est de passer
 
 - [ ] **#2 — Back : adapter le modèle de données**
   Mettre à jour le schéma Prisma pour stocker le plan (`PREMIUM` / `MAX`) et la période (`MONTHLY` / `YEARLY`) de l'utilisateur abonné. Migration à prévoir.
-
+  
 - [ ] **#3 — Back : mise à jour du checkout**
   Modifier la route de création de session Stripe Checkout pour accepter un `priceId` dynamique (en fonction du plan et de la période choisis par l'utilisateur).
 

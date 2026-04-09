@@ -5,7 +5,8 @@
 
 */
 -- AlterTable
-ALTER TABLE "User" ADD COLUMN     "stripeCustomerId" TEXT,
+ALTER TABLE "User" 
+ADD COLUMN     "stripeCustomerId" TEXT,
 ADD COLUMN     "stripePriceId" TEXT,
 ADD COLUMN     "stripeStatus" TEXT,
 ADD COLUMN     "stripeSubscriptionId" TEXT;

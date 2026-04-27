@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSubscriptionPlans } from "@/lib/subscription-plans";
 import { SubscriptionButton } from "./subscription-button";
+import Link from "next/link";
 
 export default async function DashboardPage({
   searchParams,
@@ -27,9 +28,9 @@ export default async function DashboardPage({
   const isSubscribed = user.stripeStatus === "active";
   const subscriptionPlans = getSubscriptionPlans();
   const periodLabel =
-    user.period === "year"
+    user.period === "yearly"
       ? "annuel"
-      : user.period === "month"
+      : user.period === "monthly"
         ? "mensuel"
         : null;
   const subscriptionSummary =
@@ -76,6 +77,14 @@ export default async function DashboardPage({
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 {subscriptionSummary}
               </p>
+              {isSubscribed && (
+                <Link
+                  href="/account"
+                  className="text-xs text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors"
+                >
+                  Gérer →
+                </Link>
+              )}
             </div>
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${

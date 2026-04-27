@@ -1,42 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
+import { getSubscriptionPlans } from "@/lib/subscription-plans";
 import Stripe from "stripe";
 
-function isStripeProduct(
-  product: Stripe.Product | Stripe.DeletedProduct,
-): product is Stripe.Product {
-  return !("deleted" in product);
+function resolvePlanFromPriceId(priceId: string) {
+  for (const plan of getSubscriptionPlans()) {
+    if (plan.priceIds.monthly === priceId) return { plan: plan.key, period: "monthly" };
+    if (plan.priceIds.yearly === priceId) return { plan: plan.key, period: "yearly" };
+  }
+  return { plan: null, period: null };
 }
 
-async function getSubscriptionDetails(subscription: Stripe.Subscription) {
-  const item = subscription.items.data[0];
+async function syncSubscription(customerId: string, subscription: Stripe.Subscription) {
+  const priceId = subscription.items.data[0]?.price.id ?? null;
+  const { plan, period } = priceId ? resolvePlanFromPriceId(priceId) : { plan: null, period: null };
 
-  if (!item) {
-    return {
-      priceId: null,
-      plan: null,
-      period: null,
-    };
-  }
-
-  let plan: string | null = null;
-  const product = item.price.product;
-
-  if (product && typeof product !== "string" && isStripeProduct(product)) {
-    plan = product.name;
-  } else if (typeof product === "string") {
-    const stripeProduct = await stripe.products.retrieve(product);
-    if (isStripeProduct(stripeProduct)) {
-      plan = stripeProduct.name;
-    }
-  }
-
-  return {
-    priceId: item.price.id,
-    plan,
-    period: item.price.recurring?.interval ?? null,
-  };
+  await prisma.user.update({
+    where: { stripeCustomerId: customerId },
+    data: {
+      stripeSubscriptionId: subscription.id,
+      stripePriceId: priceId,
+      stripeStatus: subscription.status,
+      plan,
+      period,
+    },
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -51,54 +40,49 @@ export async function POST(req: NextRequest) {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!,
     );
-  } catch {
+  } catch (err) {
+    console.error("[webhook] Signature invalide:", err);
     return NextResponse.json({ error: "Signature invalide" }, { status: 400 });
   }
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      if (session.subscription && session.customer) {
-        const subscription = await stripe.subscriptions.retrieve(
-          session.subscription as string,
-          {
-            expand: ["items.data.price.product"],
-          },
-        );
-        const { priceId, plan, period } =
-          await getSubscriptionDetails(subscription);
+  console.log(`[webhook] Événement reçu: ${event.type}`);
 
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.subscription && session.customer) {
+          const subscription = await stripe.subscriptions.retrieve(
+            session.subscription as string,
+          );
+          await syncSubscription(session.customer as string, subscription);
+        }
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await syncSubscription(subscription.customer as string, subscription);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
         await prisma.user.update({
-          where: { stripeCustomerId: session.customer as string },
+          where: { stripeCustomerId: subscription.customer as string },
           data: {
-            stripeSubscriptionId: subscription.id,
-            stripePriceId: priceId,
             stripeStatus: subscription.status,
-            plan,
-            period,
+            stripePriceId: null,
+            plan: null,
+            period: null,
           },
         });
+        break;
       }
-      break;
     }
-
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      const subscription = event.data.object as Stripe.Subscription;
-      const { priceId, plan, period } =
-        await getSubscriptionDetails(subscription);
-
-      await prisma.user.update({
-        where: { stripeCustomerId: subscription.customer as string },
-        data: {
-          stripeStatus: subscription.status,
-          stripePriceId: priceId,
-          plan,
-          period,
-        },
-      });
-      break;
-    }
+  } catch (err) {
+    console.error(`[webhook] Erreur lors du traitement de ${event.type}:`, err);
+    return NextResponse.json({ error: "Erreur interne" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

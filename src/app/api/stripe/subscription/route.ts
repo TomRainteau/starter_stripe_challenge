@@ -42,10 +42,17 @@ export async function PATCH(req: Request) {
     );
   }
 
-  await stripe.subscriptions.update(user.stripeSubscriptionId, {
-    items: [{ id: currentItem.id, price: priceId }],
-    proration_behavior: "create_prorations",
-  });
+  try {
+    await stripe.subscriptions.update(user.stripeSubscriptionId, {
+      items: [{ id: currentItem.id, price: priceId }],
+      proration_behavior: "create_prorations",
+    });
+  } catch (err) {
+    console.error("[subscription] Erreur Stripe:", err);
+    const message =
+      err instanceof Error ? err.message : "Erreur lors du changement de plan";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   return NextResponse.json({ success: true });
 }

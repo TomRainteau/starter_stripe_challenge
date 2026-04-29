@@ -26,6 +26,7 @@ export default async function DashboardPage({
 
   const params = await searchParams;
   const isSubscribed = user.stripeStatus === "active";
+  const isMax = isSubscribed && user.plan === "max";
   const subscriptionPlans = getSubscriptionPlans();
   const periodLabel =
     user.period === "yearly"
@@ -77,14 +78,6 @@ export default async function DashboardPage({
               <p className="text-sm text-zinc-500 dark:text-zinc-400">
                 {subscriptionSummary}
               </p>
-              {isSubscribed && (
-                <Link
-                  href="/account"
-                  className="text-xs text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors"
-                >
-                  Gérer →
-                </Link>
-              )}
             </div>
             <span
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -96,6 +89,39 @@ export default async function DashboardPage({
               {isSubscribed ? "Actif" : "Inactif"}
             </span>
           </div>
+        </div>
+
+        <div className="mb-6">
+          {isMax ? (
+            <Link
+              href="/analytics"
+              className="flex items-center justify-between rounded-lg border border-zinc-200 p-4 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            >
+              <div>
+                <p className="font-medium text-zinc-900 dark:text-zinc-50">
+                  Analytiques avancées
+                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Accès inclus dans votre plan Max
+                </p>
+              </div>
+              <span className="text-zinc-400">→</span>
+            </Link>
+          ) : (
+            <div className="flex items-center justify-between rounded-lg border border-zinc-200 p-4 opacity-60 dark:border-zinc-800">
+              <div>
+                <p className="font-medium text-zinc-900 dark:text-zinc-50">
+                  Analytiques avancées
+                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Réservé au plan Max
+                </p>
+              </div>
+              <span className="text-zinc-400" aria-label="Verrouillé">
+                🔒
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
